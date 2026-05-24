@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QUANT TERMINAL v4 — Bloomberg Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="/static/css/terminal.css">
+</head>
+<body>
+
+<div id="app">
+  <!-- TOPBAR -->
+  <header id="topbar">
+    <div class="topbar-left">
+      <span class="logo-glow">&#8710; QUANT</span>
+      <span class="logo-sub">TERMINAL v4</span>
+      <span class="topbar-sep"></span>
+      <span id="status-indicator" class="status-pulse">● INIT</span>
+    </div>
+    <div class="topbar-center" id="ticker-tape">
+      <div class="ticker-wrap">
+        <span id="tt-content">$NIFTY 23,719.30 ▲ 0.42% &nbsp;|&nbsp; $BTC 70,245 ▲ 1.8% &nbsp;|&nbsp; $XAUUSD 2,385 ▲ 0.3% &nbsp;|&nbsp; $EURUSD 1.0845 ▲ 0.12% &nbsp;|&nbsp; $SENSEX 78,156 ▲ 0.38% &nbsp;|&nbsp; $NASDAQ 18,245 ▲ 0.65%</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span id="clock-display">--:--:--</span>
+    </div>
+  </header>
+
+  <!-- MAIN LAYOUT -->
+  <div id="main-layout">
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+      <div class="sidebar-section">
+        <div class="section-title">MARKET</div>
+        <div class="form-row">
+          <label>MARKET</label>
+          <select id="input-market" class="input-neon">
+            <option value="INDIA_NSE">Indian NSE</option>
+            <option value="INDIA_BSE">Indian BSE</option>
+            <option value="FOREX">Forex / Metals</option>
+            <option value="BINANCE_SPOT">Crypto Spot</option>
+            <option value="BINANCE_PERP">Crypto Perp</option>
+            <option value="US_STOCKS">US Stocks</option>
+            <option value="GLOBAL_UNIVERSAL">Global Assets</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>SYMBOL</label>
+          <input type="text" id="input-symbol" value="NIFTY" class="input-neon">
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-title">GANNN PARAMS</div>
+        <div class="form-row">
+          <label>TIMEFRAME</label>
+          <select id="input-tf" class="input-neon">
+            <option value="Daily">Daily</option>
+            <option value="1-Hour">1-Hour</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>MULTIPLIER</label>
+          <select id="input-mult" class="input-neon">
+            <option value="1">1x</option><option value="10">10x</option>
+            <option value="100">100x</option><option value="1000">1K</option>
+            <option value="10000">10K</option><option value="100000">100K</option>
+            <option value="1000000">1M</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>START</label>
+          <input type="date" id="input-start" class="input-neon">
+        </div>
+        <div class="form-row">
+          <label>END</label>
+          <input type="date" id="input-end" class="input-neon">
+        </div>
+      </div>
+
+      <button id="btn-execute" class="btn-exec-glow">
+        <span class="btn-text">EXECUTE ALL</span>
+        <span class="btn-icon">&#9654;</span>
+      </button>
+
+      <div class="sidebar-quick">
+        <button class="q-btn crypto" data-sym="BTCUSD" data-mkt="BINANCE_SPOT">BTC</button>
+        <button class="q-btn forex" data-sym="XAUUSD" data-mkt="FOREX">XAU</button>
+        <button class="q-btn nifty" data-sym="NIFTY" data-mkt="INDIA_NSE">NIFTY</button>
+        <button class="q-btn spx" data-sym="SPX" data-mkt="US_STOCKS">SPX</button>
+      </div>
+    </aside>
+
+    <!-- CONTENT AREA -->
+    <div id="content-wrapper">
+      <!-- TAB BAR -->
+      <nav id="tabbar">
+        <button class="tab active" data-tab="midpoint"><span class="tab-num">01</span> MP</button>
+        <button class="tab" data-tab="trend11"><span class="tab-num">02</span> 11T</button>
+        <button class="tab" data-tab="gann144"><span class="tab-num">03</span> G144</button>
+        <button class="tab" data-tab="footprint"><span class="tab-num">04</span> SM</button>
+        <button class="tab" data-tab="scanner"><span class="tab-num">05</span> SCAN</button>
+        <button class="tab" data-tab="news"><span class="tab-num">06</span> NEWS</button>
+        <div class="tab-spacer"></div>
+        <button id="btn-run-all" class="tab-run">► RUN ALL</button>
+      </nav>
+
+      <!-- PANELS + RIGHT WIDGETS -->
+      <div id="panel-row">
+        <div id="panel-container">
+          <div class="panel active" id="panel-midpoint">
+            <div class="panel-placeholder">
+              <div class="placeholder-icon">&#9632;</div>
+              <div>Select symbol and press <span class="text-amber">EXECUTE ALL</span> to analyze</div>
+            </div>
+          </div>
+          <div class="panel" id="panel-trend11"><div class="panel-placeholder">11-Trend volatility analysis</div></div>
+          <div class="panel" id="panel-gann144"><div class="panel-placeholder">Gann 144 cycle matrix</div></div>
+          <div class="panel" id="panel-footprint"><div class="panel-placeholder">Smart Money footprint tracker</div></div>
+          <div class="panel" id="panel-scanner"><div class="panel-placeholder">Select symbol to auto-scan trending assets</div></div>
+          <div class="panel" id="panel-news"><div class="panel-placeholder">Loading news...</div></div>
+        </div>
+
+        <!-- RIGHT WIDGETS: Chart + Map -->
+        <div id="right-widgets">
+          <div class="widget-panel" id="chart-widget">
+            <div class="widget-header">
+              <span>CHART <span id="chart-sym-label" style="color:var(--amber);">NIFTY</span></span>
+              <span class="chart-badge" id="chart-market-label">NSE</span>
+            </div>
+            <div id="tv-chart-container">
+              <div id="tv-chart"></div>
+            </div>
+          </div>
+          <div class="widget-panel" id="map-widget">
+            <div class="widget-header"><span>NEWS MAP</span></div>
+            <div id="world-map"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOMBAR -->
+  <footer id="bottombar">
+    <div class="bottom-left">
+      <span class="bot-status" id="bottom-status">● READY</span>
+      <span class="bot-sep">|</span>
+      <span id="bottom-data">TVDatafeed Connected</span>
+    </div>
+    <div class="bottom-center">
+      <span id="bottom-detail">— Bloomberg-Style Quant Terminal v4 —</span>
+    </div>
+    <div class="bottom-right">
+      <span id="bottom-memory">MEM: 0 MB</span>
+      <span class="bot-sep">|</span>
+      <span id="bottom-time"></span>
+    </div>
+  </footer>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://s3.tradingview.com/tv.js"></script>
+<script src="/static/js/app.js"></script>
+<script src="/static/js/engines.js"></script>
+<script src="/static/js/news.js"></script>
+</body>
+</html>

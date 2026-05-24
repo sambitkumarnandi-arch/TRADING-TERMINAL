@@ -15,12 +15,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from datetime import date, timedelta
-from engines.midpoint import get_midpoint_data, create_midpoint_excel, format_price
-from engines.trend11 import get_11trend_data, create_11trend_excel
-from engines.gann144 import get_gann_data, create_gann_excel, analyze_gann
-from engines.footprint import get_realtime_footprint
-from engines.news_scraper import get_news
-from engines.scanner import run_scanner
+from midpoint import get_midpoint_data, create_midpoint_excel, format_price
+from trend11 import get_11trend_data, create_11trend_excel
+from gann144 import get_gann_data, create_gann_excel, analyze_gann
+from footprint import get_realtime_footprint
+from news_scraper import get_news
+from scanner import run_scanner
 
 app = FastAPI(title="Quant Terminal v4")
 
@@ -33,7 +33,7 @@ app.add_middleware(
 )
 
 # Serve static frontend
-frontend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
+frontend_dir = os.path.dirname(os.path.abspath(__file__))
 if os.path.exists(frontend_dir):
     app.mount("/static", StaticFiles(directory=frontend_dir), name="frontend")
 

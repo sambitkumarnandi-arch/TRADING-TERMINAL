@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from datetime import date, timedelta
-from engines.midpoint import get_midpoint_data, create_midpoint_excel, format_price
+from engines.midpoint import get_midpoint_data, create_midpoint_excel
 from engines.trend11 import get_11trend_data, create_11trend_excel
 from engines.gann144 import get_gann_data, create_gann_excel, analyze_gann
 from engines.footprint import get_realtime_footprint

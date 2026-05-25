@@ -2,7 +2,7 @@ import math
 import io
 import base64
 import pytz
-from datetime import timedelta
+from datetime import timedelta, timezone, datetime
 from tvDatafeed import TvDatafeed, Interval
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
@@ -94,9 +94,6 @@ def get_midpoint_data(symbol, market_type):
                 df = temp_df; successful_exchange = ex; break
         if df is None or df.empty: return None, f"'{symbol}' not found."
         last_closed_candle = df.iloc[-2] if len(df) >= 2 else df.iloc[-1]
-        raw_time = last_closed_candle.name
-        ist_tz = pytz.timezone('Asia/Kolkata')
-        candle_time_ist = raw_time.tz_convert(ist_tz) if raw_time.tzinfo else raw_time.tz_localize('UTC').tz_convert(ist_tz)
         open_price = float(last_closed_candle['open'])
         high_price = float(last_closed_candle['high'])
         low_price = float(last_closed_candle['low'])
@@ -116,7 +113,7 @@ def get_midpoint_data(symbol, market_type):
         sell_entry = mid_point - (price_range * 0.236)
         return {
             'Symbol': symbol, 'Exchange': successful_exchange,
-            'Time': candle_time_ist.strftime('%d %b %Y, %I:%M %p IST'),
+            'Time': datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime('%d %b %Y, %I:%M %p IST'),
             'Open': open_price, 'High': high_price, 'Low': low_price, 'Close': close_price,
             'Mid': mid_point, 'Range': price_range,
             'Buy_Entry': buy_entry, 'Buy_T1': (high_price + mid_point)/2,

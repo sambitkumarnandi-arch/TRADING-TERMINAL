@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import pytz
-from tvDatafeed import TvDatafeed, Interval
+from utils import fetch_ohlcv
 
 SCAN_UNIVERSE = {
     'INDIA_NSE': [
@@ -46,17 +46,6 @@ CRYPTO_BENCHMARKS = [
     ('ETHBTC', 'BINANCE'),
     ('SOLBTC', 'BINANCE'),
 ]
-
-def fetch_benchmarks(tv):
-    bench_data = {}
-    for sym, ex in CRYPTO_BENCHMARKS:
-        try:
-            df = tv.get_hist(symbol=sym, exchange=ex, interval=Interval.in_daily, n_bars=90)
-            if df is not None and not df.empty and len(df) >= 20:
-                bench_data[sym] = df['close'].values.astype(float)
-        except Exception:
-            continue
-    return bench_data
 
 def calculate_adx(df, period=14):
     high = df['high'].values.astype(float)
@@ -144,7 +133,6 @@ def calculate_volatility(close_prices, period=14):
     return round(np.std(returns) * 100, 2)
 
 def run_scanner(market_filter=None):
-    tv = TvDatafeed()
     results = []
     perp_results = []
     ist = pytz.timezone('Asia/Kolkata')
@@ -162,10 +150,10 @@ def run_scanner(market_filter=None):
     for market_name, assets in universe.items():
         for sym, ex in assets:
             try:
-                df = tv.get_hist(symbol=sym, exchange=ex, interval=Interval.in_daily, n_bars=30)
+                df, _ = fetch_ohlcv(sym, market_name, '1d', 45)
                 if df is None or df.empty or len(df) < 15:
                     continue
-                close_prices = df['close'].values
+                close_prices = df['close'].values.astype(float)
                 last_close = float(close_prices[-1])
                 prev_close = float(close_prices[-2]) if len(close_prices) > 1 else last_close
                 change_pct = round((last_close - prev_close) / prev_close * 100, 2) if prev_close > 0 else 0
@@ -192,12 +180,19 @@ def run_scanner(market_filter=None):
     run_perp = (market_filter == 'CRYPTO_PERP') or (market_filter is None)
     if run_perp:
         try:
-            bench_data = fetch_benchmarks(tv)
+            bench_data = {}
+            for bench_sym, bench_ex in CRYPTO_BENCHMARKS:
+                try:
+                    bench_df, _ = fetch_ohlcv(bench_sym, 'CRYPTO', '1d', 90)
+                    if bench_df is not None and not bench_df.empty and len(bench_df) >= 20:
+                        bench_data[bench_sym] = bench_df['close'].values.astype(float)
+                except Exception:
+                    continue
             perp_assets = SCAN_UNIVERSE['CRYPTO_PERP']
 
             for sym, ex in perp_assets:
                 try:
-                    df = tv.get_hist(symbol=sym, exchange=ex, interval=Interval.in_daily, n_bars=90)
+                    df, _ = fetch_ohlcv(sym, 'CRYPTO', '1d', 90)
                     if df is None or df.empty or len(df) < 20:
                         continue
 

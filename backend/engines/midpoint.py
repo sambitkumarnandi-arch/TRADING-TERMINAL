@@ -1,9 +1,7 @@
 import math
 import io
 import base64
-import pytz
-from datetime import timedelta, timezone, datetime
-from tvDatafeed import TvDatafeed, Interval
+from datetime import timedelta
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 
@@ -75,29 +73,18 @@ def create_midpoint_excel(data):
 
 def get_midpoint_data(symbol, market_type):
     symbol = symbol.upper().strip()
-    ex_map = {
-        'FOREX': ['OANDA','FOREXCOM','FX_IDC','FX','CAPITALCOM','EIGHTCAP'],
-        'BINANCE_SPOT': ['BINANCE','COINBASE','KUCOIN','CRYPTO','HYPERLIQUID'],
-        'BINANCE_PERP': ['BINANCE','BYBIT','OKX','HYPERLIQUID'],
-        'INDIA_NSE': ['NSE','BSE'],
-        'INDIA_BSE': ['BSE','NSE'],
-        'US_STOCKS': ['NASDAQ','NYSE','AMEX','BATS'],
-        'GLOBAL_UNIVERSAL': ['NASDAQ','NYSE','TVC','CAPITALCOM','LSE','TSX','ASX','HKEX','TSE','XETR','EURONEXT','OANDA','BINANCE','NSE','BSE']
-    }
-    exchanges_to_try = ex_map.get(market_type, ['OANDA','BINANCE','HYPERLIQUID'])
+    from utils import fetch_ohlcv
     try:
-        tv = TvDatafeed()
-        df, successful_exchange = None, None
-        for ex in exchanges_to_try:
-            temp_df = tv.get_hist(symbol=symbol, exchange=ex, interval=Interval.in_1_hour, n_bars=2)
-            if temp_df is not None and not temp_df.empty:
-                df = temp_df; successful_exchange = ex; break
-        if df is None or df.empty: return None, f"'{symbol}' not found."
-        last_closed_candle = df.iloc[-2] if len(df) >= 2 else df.iloc[-1]
-        open_price = float(last_closed_candle['open'])
-        high_price = float(last_closed_candle['high'])
-        low_price = float(last_closed_candle['low'])
-        close_price = float(last_closed_candle['close'])
+        df, source = fetch_ohlcv(symbol, market_type, '1h', 50)
+        if df is None or df.empty:
+            return None, f"'{symbol}' not found."
+        successful_exchange = source
+        last_closed = df.iloc[-1]
+        candle_time_str = str(last_closed.name.strftime('%d %b %Y, %I:%M %p IST')) if hasattr(last_closed.name, 'strftime') else str(last_closed.name)
+        open_price = float(last_closed['open'])
+        high_price = float(last_closed['high'])
+        low_price = float(last_closed['low'])
+        close_price = float(last_closed['close'])
         mid_point = (high_price + low_price) / 2
         price_range = high_price - low_price
         half_range = high_price - mid_point
@@ -113,7 +100,7 @@ def get_midpoint_data(symbol, market_type):
         sell_entry = mid_point - (price_range * 0.236)
         return {
             'Symbol': symbol, 'Exchange': successful_exchange,
-            'Time': datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime('%d %b %Y, %I:%M %p IST'),
+            'Time': candle_time_str,
             'Open': open_price, 'High': high_price, 'Low': low_price, 'Close': close_price,
             'Mid': mid_point, 'Range': price_range,
             'Buy_Entry': buy_entry, 'Buy_T1': (high_price + mid_point)/2,

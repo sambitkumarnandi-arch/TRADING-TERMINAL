@@ -171,10 +171,135 @@ function renderFootprint(d) {
 function renderScanner(data) {
   const p = document.getElementById('panel-scanner');
   if (!p) return;
-  if (!data || !data.results || data.results.length === 0) {
+  if (!data || (!data.results && !data.crypto_perp)) {
     p.innerHTML = '<div class="panel-placeholder">No scanner results available</div>';
     return;
   }
+
+  let html = '';
+  const allMarkets = data.results ? [...new Set(data.results.map(r => r.market))] : [];
+
+  if (data.results && data.results.length > 0) {
+    html += `<div class="scanner-meta">
+      <span>Scanned <span class="scanner-total">${data.total_scanned} assets</span> across ${allMarkets.length} markets</span>
+      <span class="scanner-time">${data.scanned_at}</span>
+      <select class="scanner-market-select" onchange="filterScanner(this.value)">
+        <option value="all">ALL MARKETS</option>
+        ${allMarkets.map(m => `<option value="${m}">${m.replace(/_/g, ' ')}</option>`).join('')}
+      </select>
+    </div>
+    <div id="scanner-table-wrap">
+    <table class="scan-table">
+      <thead><tr>
+        <th>#</th><th>Symbol</th><th>Market</th><th>Price</th><th>Chg%</th>
+        <th>ADX</th><th>RSI</th><th>Alpha</th><th>Rating</th><th>Signal</th>
+      </tr></thead><tbody>`;
+
+    data.results.forEach((r, i) => {
+      const alpha = r.alpha || 0;
+      const alphaColor = alpha >= 75 ? 'var(--green)' : alpha >= 60 ? '#66bb6a' : alpha >= 45 ? 'var(--amber)' : alpha >= 30 ? 'var(--orange)' : 'var(--red)';
+      const chgCls = r.change_pct >= 0 ? 'cell-buy' : 'cell-sell';
+      html += `<tr>
+        <td style="color:var(--text-dim);">${i + 1}</td>
+        <td class="scan-sym" onclick="document.getElementById('input-symbol').value='${r.symbol}';document.getElementById('input-market').value='${r.market}';initChartForSymbol('${r.symbol}','${r.market}');runAllEngines();">${r.symbol}</td>
+        <td style="font-size:9px;color:var(--text-dim);">${r.exchange}</td>
+        <td>${fmt(r.price)}</td>
+        <td class="${chgCls}">${r.change_pct >= 0 ? '+' : ''}${r.change_pct}%</td>
+        <td class="scan-adx">${r.adx}</td>
+        <td class="scan-rsi">${r.rsi}</td>
+        <td class="scan-alpha" style="color:${alphaColor};">${alpha}</td>
+        <td class="scan-rating rating-${r.rating.replace(' ', '')}">${r.rating}</td>
+        <td class="signal-${r.signal}">${r.signal}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+
+  if (data.crypto_perp && data.crypto_perp.results && data.crypto_perp.results.length > 0) {
+    const perp = data.crypto_perp;
+    html += `<div class="crypto-perp-section">
+      <div class="crypto-perp-header">
+        <h3>CRYPTO PERPETUAL CONTRACTS</h3>
+        <div class="perp-summary">
+          <span class="perp-total">${perp.total_scanned} pairs</span>
+          <span class="perp-breakouts">Breakouts: ${perp.breakouts ? perp.breakouts.length : 0}</span>
+          <span class="perp-breakdowns">Breakdowns: ${perp.breakdowns ? perp.breakdowns.length : 0}</span>
+        </div>
+      </div>
+      <div class="perp-benchmarks-note">
+        Alpha vs Benchmarks: ETH/BTC · SOL/BTC · TOTAL Mkt Cap (90d)
+      </div>
+      <table class="scan-table perp-table">
+        <thead><tr>
+          <th>#</th><th>Symbol</th><th>Price</th><th>ADX</th><th>RSI</th><th>Vol%</th>
+          <th>Δ7d</th><th>Δ14d</th><th>α Score</th><th>Rating</th><th>Signal</th><th>Pattern</th>
+        </tr></thead><tbody>`;
+
+    perp.results.forEach((r, i) => {
+      const alphaScore = r.alpha_score || 0;
+      const alphaColor = alphaScore >= 75 ? 'var(--green)' : alphaScore >= 60 ? '#66bb6a' : alphaScore >= 45 ? 'var(--amber)' : alphaScore >= 30 ? 'var(--orange)' : 'var(--red)';
+      const deltaCls = r.delta_14d >= 0 ? 'cell-buy' : 'cell-sell';
+      let pattern = r.breakout ? '🟢 BREAKOUT' : r.breakdown ? '🔴 BREAKDOWN' : '—';
+      let patternCls = r.breakout ? 'cell-buy' : r.breakdown ? 'cell-sell' : '';
+      html += `<tr>
+        <td style="color:var(--text-dim);">${i + 1}</td>
+        <td class="scan-sym" onclick="document.getElementById('input-symbol').value='${r.symbol}';document.getElementById('input-market').value='CRYPTO';initChartForSymbol('${r.symbol}','CRYPTO');runAllEngines();">${r.symbol}</td>
+        <td>${fmt(r.price)}</td>
+        <td class="scan-adx">${r.adx}</td>
+        <td class="scan-rsi">${r.rsi}</td>
+        <td class="scan-vol">${r.volatility_pct}%</td>
+        <td class="${deltaCls}">${r.delta_7d >= 0 ? '+' : ''}${r.delta_7d}%</td>
+        <td class="${deltaCls}">${r.delta_14d >= 0 ? '+' : ''}${r.delta_14d}%</td>
+        <td class="scan-alpha" style="color:${alphaColor};">${alphaScore}</td>
+        <td class="scan-rating rating-${r.rating.replace(' ', '')}">${r.rating}</td>
+        <td class="signal-${r.signal}">${r.signal}</td>
+        <td class="${patternCls}">${pattern}</td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+
+  p.innerHTML = html;
+  scannerData = data;
+}
+
+function filterScanner(market) {
+  if (!scannerData || !scannerData.results) return;
+  const filtered = market === 'all'
+    ? scannerData.results
+    : scannerData.results.filter(r => r.market === market);
+  const p = document.getElementById('panel-scanner');
+  if (!p) return;
+  const tableWrap = document.getElementById('scanner-table-wrap');
+  if (!tableWrap) return;
+
+  let html = `<table class="scan-table">
+    <thead><tr>
+      <th>#</th><th>Symbol</th><th>Market</th><th>Price</th><th>Chg%</th>
+      <th>ADX</th><th>RSI</th><th>Alpha</th><th>Rating</th><th>Signal</th>
+    </tr></thead><tbody>`;
+
+  filtered.forEach((r, i) => {
+    const alpha = r.alpha || 0;
+    const alphaColor = alpha >= 75 ? 'var(--green)' : alpha >= 60 ? '#66bb6a' : alpha >= 45 ? 'var(--amber)' : alpha >= 30 ? 'var(--orange)' : 'var(--red)';
+    const chgCls = r.change_pct >= 0 ? 'cell-buy' : 'cell-sell';
+    html += `<tr>
+      <td style="color:var(--text-dim);">${i + 1}</td>
+      <td class="scan-sym" onclick="document.getElementById('input-symbol').value='${r.symbol}';document.getElementById('input-market').value='${r.market}';initChartForSymbol('${r.symbol}','${r.market}');runAllEngines();">${r.symbol}</td>
+      <td style="font-size:9px;color:var(--text-dim);">${r.exchange}</td>
+      <td>${fmt(r.price)}</td>
+      <td class="${chgCls}">${r.change_pct >= 0 ? '+' : ''}${r.change_pct}%</td>
+      <td class="scan-adx">${r.adx}</td>
+      <td class="scan-rsi">${r.rsi}</td>
+      <td class="scan-alpha" style="color:${alphaColor};">${alpha}</td>
+      <td class="scan-rating rating-${r.rating.replace(' ', '')}">${r.rating}</td>
+      <td class="signal-${r.signal}">${r.signal}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  tableWrap.innerHTML = html;
+}
 
   const allMarkets = [...new Set(data.results.map(r => r.market))];
   let html = `<div class="scanner-meta">

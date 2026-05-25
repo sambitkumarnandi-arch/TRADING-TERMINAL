@@ -3,7 +3,6 @@ import pandas as pd
 import pytz
 from tvDatafeed import TvDatafeed, Interval
 
-# Asset universe to scan
 SCAN_UNIVERSE = {
     'INDIA_NSE': [
         ('NIFTY', 'NSE'), ('BANKNIFTY', 'NSE'), ('RELIANCE', 'NSE'), ('TCS', 'NSE'),
@@ -28,8 +27,36 @@ SCAN_UNIVERSE = {
         ('SPY', 'AMEX'), ('QQQ', 'NASDAQ'), ('AAPL', 'NASDAQ'), ('MSFT', 'NASDAQ'),
         ('GOOGL', 'NASDAQ'), ('AMZN', 'NASDAQ'), ('TSLA', 'NASDAQ'), ('NVDA', 'NASDAQ'),
         ('META', 'NASDAQ'), ('JPM', 'NYSE'), ('V', 'NYSE'), ('JNJ', 'NYSE')
+    ],
+    'CRYPTO_PERP': [
+        ('BTCUSDT', 'BINANCE'), ('ETHUSDT', 'BINANCE'), ('BNBUSDT', 'BINANCE'),
+        ('SOLUSDT', 'BINANCE'), ('XRPUSDT', 'BINANCE'), ('ADAUSDT', 'BINANCE'),
+        ('DOGEUSDT', 'BINANCE'), ('AVAXUSDT', 'BINANCE'), ('DOTUSDT', 'BINANCE'),
+        ('LINKUSDT', 'BINANCE'), ('MATICUSDT', 'BINANCE'), ('UNIUSDT', 'BINANCE'),
+        ('ATOMUSDT', 'BINANCE'), ('LTCUSDT', 'BINANCE'), ('FILUSDT', 'BINANCE'),
+        ('APTUSDT', 'BINANCE'), ('ARBUSDT', 'BINANCE'), ('OPUSDT', 'BINANCE'),
+        ('INJUSDT', 'BINANCE'), ('TIAUSDT', 'BINANCE'), ('NEARUSDT', 'BINANCE'),
+        ('SUIUSDT', 'BINANCE'), ('SEIUSDT', 'BINANCE'), ('PEPEUSDT', 'BINANCE'),
+        ('WIFUSDT', 'BINANCE'), ('RUNEUSDT', 'BINANCE'), ('AAVEUSDT', 'BINANCE'),
+        ('FETUSDT', 'BINANCE'), ('STRKUSDT', 'BINANCE'), ('ENAUSDT', 'BINANCE')
     ]
 }
+
+CRYPTO_BENCHMARKS = [
+    ('ETHBTC', 'BINANCE'),
+    ('SOLBTC', 'BINANCE'),
+]
+
+def fetch_benchmarks(tv):
+    bench_data = {}
+    for sym, ex in CRYPTO_BENCHMARKS:
+        try:
+            df = tv.get_hist(symbol=sym, exchange=ex, interval=Interval.in_daily, n_bars=90)
+            if df is not None and not df.empty and len(df) >= 20:
+                bench_data[sym] = df['close'].values.astype(float)
+        except Exception:
+            continue
+    return bench_data
 
 def calculate_adx(df, period=14):
     high = df['high'].values.astype(float)
@@ -98,17 +125,39 @@ def calculate_alpha(dx, rsi, volume_ratio):
         rating = "AVOID"
     return round(total, 1), rating
 
+def calculate_beta(asset_returns, benchmark_returns):
+    if len(asset_returns) < 10 or len(benchmark_returns) < 10:
+        return 1.0
+    min_len = min(len(asset_returns), len(benchmark_returns))
+    a_ret = asset_returns[-min_len:]
+    b_ret = benchmark_returns[-min_len:]
+    cov = np.cov(a_ret, b_ret)[0][1]
+    var_b = np.var(b_ret)
+    if var_b == 0:
+        return 1.0
+    return cov / var_b
+
+def calculate_volatility(close_prices, period=14):
+    if len(close_prices) < period:
+        return 0.0
+    returns = np.diff(close_prices[-period-1:]) / close_prices[-period-2:-1]
+    return round(np.std(returns) * 100, 2)
+
 def run_scanner(market_filter=None):
     tv = TvDatafeed()
     results = []
+    perp_results = []
     ist = pytz.timezone('Asia/Kolkata')
     now = pd.Timestamp.now(ist).strftime('%d %b %Y, %H:%M IST')
 
     universe = {}
     if market_filter and market_filter in SCAN_UNIVERSE:
-        universe[market_filter] = SCAN_UNIVERSE[market_filter]
+        if market_filter == 'CRYPTO_PERP':
+            pass
+        else:
+            universe[market_filter] = SCAN_UNIVERSE[market_filter]
     else:
-        universe = SCAN_UNIVERSE
+        universe = {k: v for k, v in SCAN_UNIVERSE.items() if k != 'CRYPTO_PERP'}
 
     for market_name, assets in universe.items():
         for sym, ex in assets:
@@ -137,5 +186,106 @@ def run_scanner(market_filter=None):
             except Exception:
                 continue
 
-    results.sort(key=lambda x: x['alpha'], reverse=True)
-    return {'scanned_at': now, 'total_scanned': len(results), 'results': results}
+    results.sort(key=lambda x: x.get('alpha', 0), reverse=True)
+    output = {'scanned_at': now, 'total_scanned': len(results), 'results': results}
+
+    run_perp = (market_filter == 'CRYPTO_PERP') or (market_filter is None)
+    if run_perp:
+        try:
+            bench_data = fetch_benchmarks(tv)
+            perp_assets = SCAN_UNIVERSE['CRYPTO_PERP']
+
+            for sym, ex in perp_assets:
+                try:
+                    df = tv.get_hist(symbol=sym, exchange=ex, interval=Interval.in_daily, n_bars=90)
+                    if df is None or df.empty or len(df) < 20:
+                        continue
+
+                    close_prices = df['close'].values.astype(float)
+                    last_close = float(close_prices[-1])
+                    high_prices = df['high'].values.astype(float)
+                    low_prices = df['low'].values.astype(float)
+
+                    price_delta_7d = ((close_prices[-1] - close_prices[-8]) / close_prices[-8]) * 100 if len(close_prices) >= 8 else 0
+                    price_delta_14d = ((close_prices[-1] - close_prices[-15]) / close_prices[-15]) * 100 if len(close_prices) >= 15 else 0
+                    price_delta_30d = ((close_prices[-1] - close_prices[-31]) / close_prices[-31]) * 100 if len(close_prices) >= 31 else 0
+                    delta_positive = price_delta_7d > 0 or price_delta_14d > 0
+                    asset_returns = np.diff(close_prices) / close_prices[:-1]
+
+                    bench_alphas = {}
+                    for bench_sym, bench_close in bench_data.items():
+                        if len(bench_close) < 20:
+                            continue
+                        bench_returns = np.diff(bench_close) / bench_close[:-1]
+                        beta = calculate_beta(asset_returns, bench_returns)
+                        expected_return = beta * np.mean(bench_returns[-len(asset_returns):])
+                        actual_return = np.mean(asset_returns[-min(len(asset_returns), 30):])
+                        alpha_val = round((actual_return - expected_return) * 100, 2)
+                        bench_alphas[bench_sym] = {'beta': round(beta, 2), 'alpha': alpha_val}
+
+                    adx = calculate_adx(df)
+                    rsi = calculate_rsi(close_prices)
+                    atr = np.mean([high_prices[i] - low_prices[i] for i in range(-14, 0)]) if len(high_prices) >= 14 else 0
+                    atr_pct = round((atr / last_close) * 100, 2) if last_close > 0 else 0
+                    volumes = df['volume'].values.astype(float)
+                    avg_vol = np.mean(volumes[-20:]) if len(volumes) >= 20 else np.mean(volumes)
+                    recent_vol = np.mean(volumes[-3:]) if len(volumes) >= 3 else avg_vol
+                    vol_ratio = round(recent_vol / avg_vol, 2) if avg_vol > 0 else 1.0
+
+                    composite_alpha_score = 0.0
+                    for b in bench_alphas.values():
+                        composite_alpha_score += b['alpha']
+                    composite_alpha_score = round(composite_alpha_score / len(bench_alphas), 2) if bench_alphas else 0
+
+                    breakout = adx > 25 and price_delta_14d > 5 and composite_alpha_score > 0
+                    breakdown = adx > 25 and price_delta_14d < -5 and composite_alpha_score < 0
+
+                    if adx >= 25:
+                        perp_signal = "BUY" if (rsi > 55 and price_delta_14d > 0) else ("SELL" if (rsi < 45 and price_delta_14d < 0) else "NEUTRAL")
+                    elif adx >= 15:
+                        perp_signal = "NEUTRAL"
+                    else:
+                        perp_signal = "WEAK"
+
+                    alpha_score = min(composite_alpha_score + 50, 100)
+                    alpha_score = max(alpha_score, 0)
+                    if alpha_score >= 75:
+                        rating = "STRONG BUY"
+                    elif alpha_score >= 60:
+                        rating = "BUY"
+                    elif alpha_score >= 45:
+                        rating = "HOLD"
+                    elif alpha_score >= 30:
+                        rating = "WEAK"
+                    else:
+                        rating = "AVOID"
+
+                    perp_results.append({
+                        'symbol': sym, 'exchange': ex, 'market': 'CRYPTO_PERP',
+                        'price': last_close, 'adx': adx, 'rsi': rsi,
+                        'volatility_pct': atr_pct, 'volume_ratio': vol_ratio,
+                        'delta_7d': round(price_delta_7d, 2),
+                        'delta_14d': round(price_delta_14d, 2),
+                        'delta_30d': round(price_delta_30d, 2),
+                        'delta_positive': bool(delta_positive),
+                        'alpha_vs_benchmarks': bench_alphas,
+                        'composite_alpha': composite_alpha_score,
+                        'alpha_score': round(alpha_score, 1),
+                        'rating': rating, 'signal': perp_signal,
+                        'breakout': bool(breakout), 'breakdown': bool(breakdown),
+                    })
+                except Exception:
+                    continue
+
+            perp_results.sort(key=lambda x: x['composite_alpha'], reverse=True)
+        except Exception:
+            pass
+
+        output['crypto_perp'] = {
+            'total_scanned': len(perp_results),
+            'results': perp_results,
+            'breakouts': [r for r in perp_results if r.get('breakout')],
+            'breakdowns': [r for r in perp_results if r.get('breakdown')],
+        }
+
+    return output

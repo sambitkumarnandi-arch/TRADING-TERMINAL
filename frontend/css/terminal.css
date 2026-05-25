@@ -495,4 +495,13 @@ html, body {
 .scan-alpha { font-weight: 700; }
 .scan-vol { color: var(--text-secondary); }
 
+.crypto-perp-section { margin-top: 24px; padding: 12px; background: rgba(0,80,200,0.04); border: 1px solid rgba(0,120,255,0.15); border-radius: var(--radius); }
+.crypto-perp-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.crypto-perp-header h3 { color: #4488ff; font-size: 12px; letter-spacing: 2px; margin: 0; }
+.perp-summary { display: flex; gap: 12px; font-size: 10px; }
+.perp-total { color: var(--text-secondary); }
+.perp-breakouts { color: var(--green); font-weight: 700; }
+.perp-breakdowns { color: var(--red); font-weight: 700; }
+.perp-benchmarks-note { font-size: 9px; color: var(--text-dim); margin-bottom: 8px; padding: 4px 8px; background: rgba(255,255,255,0.02); border-radius: 3px; }
+
 .chart-badge { font-size: 8px; font-weight: 700; padding: 2px 8px; border-radius: 3px; background: rgba(255,255,255,0.06); color: var(--text-dim); letter-spacing: 1px; }

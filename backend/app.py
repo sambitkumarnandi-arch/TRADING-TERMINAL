@@ -170,8 +170,11 @@ async def api_news():
 @app.get("/api/scanner")
 @app.get("/api/scanner/{market}")
 async def api_scanner(market: str = None):
-    result = run_scanner(market)
-    return result
+    try:
+        result = run_scanner(market)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Scanner error: {str(e)}")
 
 @app.post("/api/run-all")
 async def api_run_all(req: RunAllRequest):

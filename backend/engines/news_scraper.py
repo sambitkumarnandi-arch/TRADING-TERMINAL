@@ -2,6 +2,7 @@ import requests
 import re
 import html
 from datetime import datetime
+import pytz
 import random
 
 SENTIMENT_KEYWORDS = {
@@ -175,8 +176,8 @@ def fetch_news_web():
                         'summary': html.unescape(summary[:250]) if summary else '',
                         'url': item.get('url', ''),
                         'source': source,
-                        'timestamp': datetime.now().strftime('%H:%M'),
-                        'date': datetime.now().strftime('%d %b %Y'),
+                        'timestamp': datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%H:%M'),
+                        'date': datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%d %b %Y'),
                         'sentiment': sentiment,
                         'category': category,
                         'narrative': narrative,
@@ -205,8 +206,8 @@ def fetch_news_web():
                 news_items.append({
                     'id': len(news_items) + 1, 'title': t, 'summary': '',
                     'url': '', 'source': 'TradingView',
-                    'timestamp': datetime.now().strftime('%H:%M'),
-                    'date': datetime.now().strftime('%d %b %Y'),
+                    'timestamp': datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%H:%M'),
+                    'date': datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%d %b %Y'),
                     'sentiment': sentiment, 'category': category,
                     'narrative': narrative, 'mf_take': mf_take,
                     'country': country, 'lat': coords[0], 'lon': coords[1]
@@ -233,8 +234,8 @@ def fetch_news_web():
                 news_items.append({
                     'id': len(news_items) + 1, 'title': t, 'summary': '',
                     'url': '', 'source': 'Google Finance',
-                    'timestamp': datetime.now().strftime('%H:%M'),
-                    'date': datetime.now().strftime('%d %b %Y'),
+                    'timestamp': datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%H:%M'),
+                    'date': datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%d %b %Y'),
                     'sentiment': sentiment, 'category': category,
                     'narrative': narrative, 'mf_take': mf_take,
                     'country': country, 'lat': coords[0], 'lon': coords[1]
@@ -286,8 +287,8 @@ def get_news():
                 'summary': item['summary'],
                 'url': item.get('url', ''),
                 'source': item.get('source', 'Financial Press'),
-                'timestamp': datetime.now().strftime('%H:%M'),
-                'date': datetime.now().strftime('%d %b %Y'),
+                'timestamp': datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%H:%M'),
+                'date': datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%d %b %Y'),
                 'sentiment': sentiment,
                 'category': category,
                 'narrative': narrative,

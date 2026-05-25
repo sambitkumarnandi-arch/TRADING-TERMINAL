@@ -14,7 +14,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+import pytz
+
+IST = pytz.timezone('Asia/Kolkata')
 from engines.midpoint import get_midpoint_data, create_midpoint_excel
 from engines.trend11 import get_11trend_data, create_11trend_excel
 from engines.gann144 import get_gann_data, create_gann_excel, analyze_gann
@@ -102,7 +105,7 @@ async def api_trend11(req: SymbolRequest):
 
 @app.post("/api/gann144")
 async def api_gann144(req: GannRequest):
-    today = date.today()
+    today = datetime.now(IST).date()
     start = req.start_date if req.start_date else str(today - timedelta(days=90))
     end = req.end_date if req.end_date else str(today)
     start_dt = date.fromisoformat(start)
@@ -172,7 +175,7 @@ async def api_scanner(market: str = None):
 
 @app.post("/api/run-all")
 async def api_run_all(req: RunAllRequest):
-    today = date.today()
+    today = datetime.now(IST).date()
     start = req.start_date if req.start_date else str(today - timedelta(days=90))
     end = req.end_date if req.end_date else str(today)
     results = {}
